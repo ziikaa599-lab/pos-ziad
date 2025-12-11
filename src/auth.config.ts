@@ -1,6 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
+    trustHost: true, // ⬅️⬅️⬅️ السطر اللي بيحل مشكلة UntrustedHost
+
     pages: {
         signIn: "/login",
     },
@@ -16,20 +18,16 @@ export const authConfig = {
             const isOnPOS = nextUrl.pathname.startsWith("/pos");
             const isOnLogin = nextUrl.pathname.startsWith("/login");
 
-            // Redirect unauthenticated users to login
             if ((isOnInventory || isOnPOS) && !isLoggedIn) {
                 return false;
             }
 
-            // RBAC Logic
             if (isOnInventory) {
-                // Only Admin can access inventory
                 if (userRole !== "ADMIN") {
-                    return Response.redirect(new URL("/pos", nextUrl)); // Cashiers go to POS
+                    return Response.redirect(new URL("/pos", nextUrl));
                 }
             }
 
-            // Redirect logged-in users away from login page
             if (isOnLogin && isLoggedIn) {
                 if (userRole === "ADMIN") {
                     return Response.redirect(new URL("/inventory", nextUrl));
@@ -55,5 +53,5 @@ export const authConfig = {
             return session;
         },
     },
-    providers: [], // Configured in auth.ts
+    providers: [],
 } satisfies NextAuthConfig;
