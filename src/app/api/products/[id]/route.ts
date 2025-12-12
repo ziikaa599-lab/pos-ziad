@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import { queryOne, execute } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { Decimal } from 'decimal.js';
@@ -7,17 +7,15 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = await prisma.product.findUnique({ where: { id } });
+  const product = await queryOne<any>("SELECT * FROM Product WHERE id = ?", [id]);
   if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  // Serialize Decimal to string
   return NextResponse.json({
     ...product,
-    price: product.price.toString(),
+    price: product.price?.toString() || product.price,
   });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  // Admin-only: Only admins can update products
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || (token as any).role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
@@ -26,18 +24,46 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const body = await req.json();
-    const updates: any = {};
-    if (body.name !== undefined) updates.name = body.name;
-    if (body.productCode !== undefined) updates.productCode = body.productCode;
-    if (body.price !== undefined) updates.price = new Decimal(body.price);
-    if (body.stockQuantity !== undefined) updates.stockQuantity = Number(body.stockQuantity);
-    if (body.imageUrl !== undefined) updates.imageUrl = body.imageUrl;
+    const updates: string[] = [];
+    const values: any[] = [];
 
-    const product = await prisma.product.update({ where: { id }, data: updates });
-    // Serialize Decimal to string
+    if (body.name !== undefined) {
+      updates.push("name = ?");
+      values.push(body.name);
+    }
+    if (body.productCode !== undefined) {
+      updates.push("productCode = ?");
+      values.push(body.productCode);
+    }
+    if (body.price !== undefined) {
+      updates.push("price = ?");
+      values.push(body.price.toString());
+    }
+    if (body.stockQuantity !== undefined) {
+      updates.push("stockQuantity = ?");
+      values.push(Number(body.stockQuantity));
+    }
+    if (body.imageUrl !== undefined) {
+      updates.push("imageUrl = ?");
+      values.push(body.imageUrl);
+    }
+
+    if (updates.length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+    }
+
+    updates.push("updatedAt = NOW()");
+    values.push(id);
+
+    await execute(
+      `UPDATE \`Product\` SET ${updates.join(", ")} WHERE id = ?`,
+      values
+    );
+
+    const product = await queryOne<any>("SELECT * FROM `Product` WHERE id = ?", [id]);
     return NextResponse.json({
       ...product,
-      price: product.price.toString(),
+      price: product.price?.toString() || product.price,
     });
   } catch (error) {
     console.error('Update product error', error);
@@ -46,7 +72,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  // Admin-only: Only admins can delete products
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || (token as any).role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
@@ -54,7 +79,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   try {
     const { id } = await params;
-    await prisma.product.delete({ where: { id } });
+    await execute("DELETE FROM `Product` WHERE id = ?", [id]);
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Delete product error', error);

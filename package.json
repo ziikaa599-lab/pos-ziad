@@ -6,25 +6,21 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:deploy": "prisma generate && prisma db push && next build",
+    "build:deploy": "npm run build",
     "start": "node .next/standalone/server.js",
     "start:prod": "NODE_ENV=production node .next/standalone/server.js",
     "lint": "eslint",
-    "postinstall": "prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:db:push": "prisma db push",
-    "prisma:seed": "node prisma/seed.js",
-    "prepare-db": "npm run prisma:db:push && npm run prisma:seed",
-    "deploy:hostinger": "npm run build && npm run prisma:generate && npm run prisma:db:push"
+    "init-db": "node scripts/init-db.js",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "bcryptjs": "^3.0.3",
     "decimal.js": "^10.6.0",
+    "mysql2": "^3.11.5",
     "next": "^16.0.7",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.0",
@@ -33,8 +29,8 @@
     "typescript": "^5"
   },
   "devDependencies": {
+    "@types/mysql2": "^1.0.5",
     "eslint": "^9",
-    "eslint-config-next": "16.0.5",
-    "prisma": "^5.22.0"
+    "eslint-config-next": "16.0.5"
   }
 }

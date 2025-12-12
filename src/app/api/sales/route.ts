@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import { query, queryOne, execute, generateId } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { Decimal } from 'decimal.js';
 
@@ -6,19 +6,30 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const sales = await prisma.sale.findMany({ include: { soldItems: true }, orderBy: { date: 'desc' } });
-    // Serialize Decimal fields to strings
-    const serialized = sales.map((sale: { id: string; date: Date; subtotal: any; tax: any; totalAmount: any; createdAt: Date; soldItems: any[] }) => ({
-      ...sale,
-      subtotal: sale.subtotal.toString(),
-      tax: sale.tax.toString(),
-      totalAmount: sale.totalAmount.toString(),
-      soldItems: sale.soldItems.map((item: { id: string; saleId: string; productId: string; productCode: string; name: string; quantity: number; price: any; imageUrl: string | null }) => ({
-        ...item,
-        price: item.price.toString(),
-      })),
-    }));
-    return NextResponse.json(serialized);
+    const sales = await query<any>(
+      "SELECT * FROM `Sale` ORDER BY date DESC"
+    );
+
+    const salesWithItems = await Promise.all(
+      sales.map(async (sale: any) => {
+        const soldItems = await query<any>(
+          "SELECT * FROM `SoldItem` WHERE saleId = ?",
+          [sale.id]
+        );
+        return {
+          ...sale,
+          subtotal: sale.subtotal?.toString() || sale.subtotal,
+          tax: sale.tax?.toString() || sale.tax,
+          totalAmount: sale.totalAmount?.toString() || sale.totalAmount,
+          soldItems: soldItems.map((item: any) => ({
+            ...item,
+            price: item.price?.toString() || item.price,
+          })),
+        };
+      })
+    );
+
+    return NextResponse.json(salesWithItems);
   } catch (error) {
     console.error('Fetch sales error', error);
     return NextResponse.json([], { status: 200 });
@@ -29,24 +40,28 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { soldItems, subtotal, tax, totalAmount } = body;
-    // Normalize and validate sold items: ensure each references an existing product id
+
     const normalizedItems: Array<any> = [];
     for (const s of soldItems) {
       let productId = s.productId;
-      // If productId is missing or not found, try to resolve by productCode
-      if (!productId) {
-        if (s.productCode) {
-          const prod = await prisma.product.findUnique({ where: { productCode: s.productCode } });
+      
+      if (!productId && s.productCode) {
+        const prod = await queryOne<any>(
+          "SELECT id FROM `Product` WHERE productCode = ?",
+          [s.productCode]
+        );
+        if (prod) productId = prod.id;
+      } else if (productId) {
+        const exists = await queryOne<any>(
+          "SELECT id FROM `Product` WHERE id = ?",
+          [productId]
+        );
+        if (!exists && s.productCode) {
+          const prod = await queryOne<any>(
+            "SELECT id FROM `Product` WHERE productCode = ?",
+            [s.productCode]
+          );
           if (prod) productId = prod.id;
-        }
-      } else {
-        const exists = await prisma.product.findUnique({ where: { id: productId } });
-        if (!exists) {
-          // try by code
-          if (s.productCode) {
-            const prod = await prisma.product.findUnique({ where: { productCode: s.productCode } });
-            if (prod) productId = prod.id;
-          }
         }
       }
 
@@ -60,50 +75,45 @@ export async function POST(req: Request) {
         productCode: s.productCode,
         name: s.name,
         quantity: Number(s.quantity),
-        price: new Decimal(s.price),
+        price: s.price,
       });
     }
 
-    const sale = await prisma.sale.create({
-      data: {
-        subtotal: new Decimal(subtotal),
-        tax: new Decimal(tax),
-        totalAmount: new Decimal(totalAmount),
-        soldItems: {
-          create: normalizedItems.map((s: { productId: string; productCode: string; name: string; quantity: number; price: any }) => ({
-            productId: s.productId,
-            productCode: s.productCode,
-            name: s.name,
-            quantity: s.quantity,
-            price: s.price,
-          })),
-        },
-      },
-      include: { soldItems: true },
-    });
+    const saleId = generateId();
+    await execute(
+      "INSERT INTO `Sale` (id, date, subtotal, tax, totalAmount, createdAt) VALUES (?, NOW(), ?, ?, ?, NOW())",
+      [saleId, subtotal.toString(), tax.toString(), totalAmount.toString()]
+    );
 
-    // Adjust stock quantities for each product using the validated normalized items
     for (const item of normalizedItems) {
+      const itemId = generateId();
+      await execute(
+        "INSERT INTO `SoldItem` (id, saleId, productId, productCode, name, quantity, price, imageUrl) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [itemId, saleId, item.productId, item.productCode, item.name, item.quantity, item.price.toString(), null]
+      );
+
+      // Update stock quantity
       try {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stockQuantity: { decrement: Number(item.quantity) } as any },
-        });
+        await execute(
+          "UPDATE `Product` SET stockQuantity = stockQuantity - ? WHERE id = ?",
+          [item.quantity, item.productId]
+        );
       } catch (err) {
-        // Log and continue if product was removed concurrently
         console.error('Failed to decrement stock for product', item.productId, err);
       }
     }
 
-    // Serialize Decimal fields to strings
+    const sale = await queryOne<any>("SELECT * FROM `Sale` WHERE id = ?", [saleId]);
+    const soldItems = await query<any>("SELECT * FROM `SoldItem` WHERE saleId = ?", [saleId]);
+
     const serialized = {
       ...sale,
-      subtotal: sale.subtotal.toString(),
-      tax: sale.tax.toString(),
-      totalAmount: sale.totalAmount.toString(),
-      soldItems: sale.soldItems.map((item: { id: string; saleId: string; productId: string; productCode: string; name: string; quantity: number; price: any; imageUrl: string | null }) => ({
+      subtotal: sale.subtotal?.toString() || sale.subtotal,
+      tax: sale.tax?.toString() || sale.tax,
+      totalAmount: sale.totalAmount?.toString() || sale.totalAmount,
+      soldItems: soldItems.map((item: any) => ({
         ...item,
-        price: item.price.toString(),
+        price: item.price?.toString() || item.price,
       })),
     };
 

@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import { query, execute, generateId } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { Decimal } from 'decimal.js';
@@ -6,17 +6,22 @@ import { Decimal } from 'decimal.js';
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const products = await prisma.product.findMany({ orderBy: { createdAt: 'desc' } });
-  // Serialize Decimal fields to strings for JSON
-  const serialized = products.map((p: { id: string; productCode: string; name: string; price: any; stockQuantity: number; imageUrl: string | null; createdAt: Date; updatedAt: Date }) => ({
-    ...p,
-    price: p.price.toString(),
-  }));
-  return NextResponse.json(serialized);
+  try {
+    const products = await query<any>(
+      "SELECT * FROM `Product` ORDER BY createdAt DESC"
+    );
+    const serialized = products.map((p: any) => ({
+      ...p,
+      price: p.price?.toString() || p.price,
+    }));
+    return NextResponse.json(serialized);
+  } catch (error) {
+    console.error('Fetch products error', error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 export async function POST(req: Request) {
-  // Admin-only: Only admins can create products
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || (token as any).role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized. Admin access required.' }, { status: 403 });
@@ -25,19 +30,17 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { productCode, name, price, stockQuantity, imageUrl } = body;
-    const product = await prisma.product.create({
-      data: {
-        productCode,
-        name,
-        price: new Decimal(price),
-        stockQuantity: Number(stockQuantity),
-        imageUrl
-      }
-    });
-    // Serialize Decimal to string
+    const id = generateId();
+    
+    await execute(
+      "INSERT INTO `Product` (id, productCode, name, price, stockQuantity, imageUrl, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+      [id, productCode, name, price.toString(), Number(stockQuantity), imageUrl || null]
+    );
+
+    const product = await queryOne<any>("SELECT * FROM `Product` WHERE id = ?", [id]);
     return NextResponse.json({
       ...product,
-      price: product.price.toString(),
+      price: product.price?.toString() || product.price,
     }, { status: 201 });
   } catch (error) {
     console.error('Create product error', error);

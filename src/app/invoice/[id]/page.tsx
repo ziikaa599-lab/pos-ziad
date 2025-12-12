@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import prisma from "@/lib/prisma";
+import { queryOne, query } from "@/lib/db";
 import PrintOnLoad from "../PrintOnLoad";
 import type { Metadata } from "next";
 
@@ -15,13 +15,14 @@ export const metadata: Metadata = {
 };
 
 async function getSale(id: string) {
-  const sale = await prisma.sale.findUnique({
-    where: { id },
-    include: {
-      soldItems: true,
-    },
-  });
-  return sale;
+  const sale = await queryOne<any>("SELECT * FROM `Sale` WHERE id = ?", [id]);
+  if (!sale) return null;
+  
+  const soldItems = await query<any>("SELECT * FROM `SoldItem` WHERE saleId = ?", [id]);
+  return {
+    ...sale,
+    soldItems,
+  };
 }
 
 export default async function InvoicePage({ params }: Props) {

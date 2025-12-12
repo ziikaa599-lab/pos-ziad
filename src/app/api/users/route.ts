@@ -1,17 +1,18 @@
-import prisma from '@/lib/prisma';
+import { query, execute, generateId } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  // Admin-only
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   if (!token || (token as any).role !== 'ADMIN') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  const users = await prisma.user.findMany({ select: { id: true, username: true, name: true, role: true, createdAt: true } });
+  const users = await query<any>(
+    "SELECT id, username, name, role, createdAt FROM `User`"
+  );
   return NextResponse.json(users);
 }
 
@@ -24,14 +25,21 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { username, password, name, role } = body;
-    // password should be already hashed client-side? we recommend hashing in server
-    // here we expect a plain password and hash it
     const bcrypt = await import('bcryptjs');
     const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({ data: { username, password: hashed, name, role } });
-    return NextResponse.json({ id: user.id, username: user.username, name: user.name, role: user.role }, { status: 201 });
-  } catch (error) {
+    const id = generateId();
+
+    await execute(
+      "INSERT INTO `User` (id, username, password, name, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
+      [id, username, hashed, name || null, role || 'CASHIER']
+    );
+
+    return NextResponse.json({ id, username, name, role }, { status: 201 });
+  } catch (error: any) {
     console.error('Create user error', error);
+    if (error.code === 'ER_DUP_ENTRY') {
+      return NextResponse.json({ error: 'Username already exists' }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
   }
 }
@@ -56,9 +64,16 @@ export async function PATCH(req: Request) {
     const bcrypt = await import('bcryptjs');
     const hashed = await bcrypt.hash(newPassword, 10);
 
-    const where = id ? { id } : { username };
-    const updated = await prisma.user.update({ where, data: { password: hashed } });
-    return NextResponse.json({ ok: true, id: updated.id });
+    const where = id ? "id = ?" : "username = ?";
+    const value = id || username;
+
+    await execute(
+      `UPDATE \`User\` SET password = ?, updatedAt = NOW() WHERE ${where}`,
+      [hashed, value]
+    );
+
+    const updated = await queryOne<any>(`SELECT id FROM \`User\` WHERE ${where}`, [value]);
+    return NextResponse.json({ ok: true, id: updated?.id });
   } catch (error) {
     console.error('Reset user password error', error);
     return NextResponse.json({ error: 'Failed to reset password' }, { status: 500 });
