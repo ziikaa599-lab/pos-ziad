@@ -27,7 +27,12 @@ Error: [next-auth][error][UntrustedHost]
 **الحل:**
 1. تأكد من `DATABASE_URL` في `.env`:
    ```env
-   DATABASE_URL="mysql://username:password@localhost:3306/database_name"
+   DATABASE_URL="mysql://u942940955_pos_db:Op?G5m56@localhost:3306/u942940955_pos_db"
+   ```
+   
+   **إذا كان هناك مشكلة بسبب `?` في الـ password:**
+   ```env
+   DATABASE_URL="mysql://u942940955_pos_db:Op%3FG5m56@localhost:3306/u942940955_pos_db"
    ```
 
 2. تأكد من:

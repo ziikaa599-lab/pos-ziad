@@ -29,23 +29,23 @@
 
 ### ب. تحديث Prisma Schema
 
-1. افتح `prisma/schema.prisma`
-2. غيّر `provider` من `sqlite` إلى `mysql` أو `postgresql`:
+✅ **تم التحديث تلقائياً** - `prisma/schema.prisma` تم تحديثه لاستخدام MySQL.
 
-```prisma
-datasource db {
-  provider = "mysql"  // أو "postgresql"
-  url      = env("DATABASE_URL")
-}
+**معلومات قاعدة البيانات الخاصة بك:**
+- Database: `u942940955_pos_db`
+- Username: `u942940955_pos_db`
+- Password: `Op?G5m56`
+- Host: `localhost`
+- Port: `3306`
+
+**Connection String:**
+```
+DATABASE_URL="mysql://u942940955_pos_db:Op?G5m56@localhost:3306/u942940955_pos_db"
 ```
 
-3. أنشئ connection string:
-   - **MySQL**: `mysql://username:password@host:port/database_name`
-   - **PostgreSQL**: `postgresql://username:password@host:port/database_name`
-
-مثال:
+**ملاحظة:** إذا كان هناك مشكلة في الاتصال بسبب `?` في الـ password، استخدم encoding:
 ```
-DATABASE_URL="mysql://user123:MyPass123@localhost:3306/pos_db"
+DATABASE_URL="mysql://u942940955_pos_db:Op%3FG5m56@localhost:3306/u942940955_pos_db"
 ```
 
 ---
@@ -56,30 +56,33 @@ DATABASE_URL="mysql://user123:MyPass123@localhost:3306/pos_db"
 
 بعد رفع الكود إلى Hostinger، أنشئ ملف `.env` في المجلد الرئيسي:
 
-```bash
-# Database
-DATABASE_URL="mysql://username:password@localhost:3306/pos_db"
+```env
+# Database - MySQL on Hostinger
+DATABASE_URL="mysql://u942940955_pos_db:Op?G5m56@localhost:3306/u942940955_pos_db"
 
-# NextAuth
-NEXTAUTH_SECRET="your-generated-secret-here"
-NEXTAUTH_URL="https://yourdomain.com"
+# NextAuth Configuration
+NEXTAUTH_SECRET="bPEy4b2IPlHm+daE3ZUuFSBI5YX284LdYMsqIDtnrzw="
 
-# Allowed Origins
-ALLOWED_ORIGINS="https://yourdomain.com,https://www.yourdomain.com"
+# Your production URL
+NEXTAUTH_URL="https://olive-turtle-486957.hostingersite.com"
+
+# Allowed Origins for Server Actions
+ALLOWED_ORIGINS="https://olive-turtle-486957.hostingersite.com,https://www.olive-turtle-486957.hostingersite.com"
 
 # Node Environment
 NODE_ENV="production"
 ```
 
-### ب. توليد NEXTAUTH_SECRET
-
-على جهازك المحلي، شغّل:
-
-```bash
-openssl rand -base64 32
+**ملاحظة:** إذا كان هناك مشكلة في الاتصال بسبب `?` في الـ password، استخدم:
+```env
+DATABASE_URL="mysql://u942940955_pos_db:Op%3FG5m56@localhost:3306/u942940955_pos_db"
 ```
 
-انسخ النتيجة وضعها في `NEXTAUTH_SECRET`.
+### ب. NEXTAUTH_SECRET
+
+✅ **تم توليد secret آمن لك**: `bPEy4b2IPlHm+daE3ZUuFSBI5YX284LdYMsqIDtnrzw=`
+
+**⚠️ مهم:** لا تشارك هذا الـ secret مع أحد. تم إضافته في ملف `.env` أعلاه.
 
 ---
 
