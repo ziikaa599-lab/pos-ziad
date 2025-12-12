@@ -61,8 +61,10 @@ export const authConfig = {
         signIn: ({ user, account }) => {
             console.log("User signed in:", user.id, "with account:", account?.provider);
         },
-        signOut: ({ token }) => {
-            console.log("User signed out:", token?.id);
+        signOut: (event) => {
+            // event ممكن يكون { session } أو { token } حسب النوع
+            const userId = 'token' in event && event.token ? event.token.id : event.session?.user?.id;
+            console.log("User signed out:", userId);
         },
         error: ({ error }) => {
             console.error("NextAuth error:", error);
