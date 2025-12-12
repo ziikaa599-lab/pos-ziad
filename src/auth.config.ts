@@ -76,20 +76,16 @@ export const authConfig = {
             const userId = tokenEvent.token?.id || sessionEvent.session?.user?.id;
             console.log("User signed out:", userId);
         },
-
-        error: ({ error }) => {
-            console.error("NextAuth error:", error);
-        },
     },
 
     logger: {
-        error(code, metadata) {
-            console.error("NextAuth Logger Error:", code, metadata);
+        error(error: Error) {
+            console.error("NextAuth Logger Error:", error);
         },
-        warn(code) {
+        warn(code: string) {
             console.warn("NextAuth Logger Warn:", code);
         },
-        debug(code, metadata) {
+        debug(code: string, metadata?: unknown) {
             console.debug("NextAuth Logger Debug:", code, metadata);
         },
     },
