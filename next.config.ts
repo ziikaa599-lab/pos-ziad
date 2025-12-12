@@ -11,7 +11,10 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@prisma/client', 'prisma'],
   experimental: {
     serverActions: {
-      allowedOrigins: ['localhost:3000'], // Add your production domain in the list when known
+      // Allow localhost for development and production domains
+      allowedOrigins: process.env.ALLOWED_ORIGINS 
+        ? process.env.ALLOWED_ORIGINS.split(',')
+        : ['localhost:3000'],
     },
   },
   /* config options here */
