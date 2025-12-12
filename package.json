@@ -29,7 +29,6 @@
     "typescript": "^5"
   },
   "devDependencies": {
-    "@types/mysql2": "^1.0.5",
     "eslint": "^9",
     "eslint-config-next": "16.0.5"
   }
