@@ -1,14 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
 
 export const authConfig = {
-    trustHost: true, // ⬅️⬅️⬅️ السطر اللي بيحل مشكلة UntrustedHost
+    trustHost: true, // ⬅️⬅️⬅️ يحل مشكلة UntrustedHost
 
     pages: {
         signIn: "/login",
     },
+
     session: {
         strategy: "jwt",
     },
+
     callbacks: {
         authorized({ auth, request: { nextUrl } }) {
             const isLoggedIn = !!auth?.user;
@@ -39,6 +41,7 @@ export const authConfig = {
 
             return true;
         },
+
         jwt({ token, user }) {
             if (user) {
                 token.role = (user as any).role;
@@ -47,6 +50,7 @@ export const authConfig = {
             }
             return token;
         },
+
         session({ session, token }) {
             if (session.user) {
                 (session.user as any).role = token.role;
@@ -56,20 +60,28 @@ export const authConfig = {
             return session;
         },
     },
+
     providers: [],
+
     events: {
         signIn: ({ user, account }) => {
             console.log("User signed in:", user.id, "with account:", account?.provider);
         },
+
         signOut: (event) => {
-            // event ممكن يكون { session } أو { token } حسب النوع
-            const userId = 'token' in event && event.token ? event.token.id : event.session?.user?.id;
+            // نستخدم type assertion لتجنب خطأ TypeScript
+            const tokenEvent = event as { token?: { id: string } };
+            const sessionEvent = event as { session?: { user?: { id: string } } };
+
+            const userId = tokenEvent.token?.id || sessionEvent.session?.user?.id;
             console.log("User signed out:", userId);
         },
+
         error: ({ error }) => {
             console.error("NextAuth error:", error);
         },
     },
+
     logger: {
         error(code, metadata) {
             console.error("NextAuth Logger Error:", code, metadata);
