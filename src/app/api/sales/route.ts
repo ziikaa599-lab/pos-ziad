@@ -104,14 +104,14 @@ export async function POST(req: Request) {
     }
 
     const sale = await queryOne<any>("SELECT * FROM `Sale` WHERE id = ?", [saleId]);
-    const soldItems = await query<any>("SELECT * FROM `SoldItem` WHERE saleId = ?", [saleId]);
+    const fetchedSoldItems = await query<any>("SELECT * FROM `SoldItem` WHERE saleId = ?", [saleId]);
 
     const serialized = {
       ...sale,
       subtotal: sale.subtotal?.toString() || sale.subtotal,
       tax: sale.tax?.toString() || sale.tax,
       totalAmount: sale.totalAmount?.toString() || sale.totalAmount,
-      soldItems: soldItems.map((item: any) => ({
+      soldItems: fetchedSoldItems.map((item: any) => ({
         ...item,
         price: item.price?.toString() || item.price,
       })),
