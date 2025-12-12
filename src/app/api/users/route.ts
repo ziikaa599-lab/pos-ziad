@@ -1,4 +1,4 @@
-import { query, execute, generateId } from '@/lib/db';
+import { query, queryOne, execute, generateId } from '@/lib/db';
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
