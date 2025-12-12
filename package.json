@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:deploy": "prisma generate && prisma db push && next build",
     "start": "node .next/standalone/server.js",
     "start:prod": "NODE_ENV=production node .next/standalone/server.js",
     "lint": "eslint",
