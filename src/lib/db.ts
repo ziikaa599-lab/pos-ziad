@@ -24,25 +24,41 @@ function parseDatabaseUrl() {
   };
 }
 
-// Create connection pool
-const config = parseDatabaseUrl();
+// Lazy initialization of connection pool
+let pool: mysql.Pool | null = null;
 
-const pool = mysql.createPool({
-  ...config,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0,
-});
+function getPool(): mysql.Pool {
+  if (!pool) {
+    try {
+      const config = parseDatabaseUrl();
+      pool = mysql.createPool({
+        ...config,
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0,
+        enableKeepAlive: true,
+        keepAliveInitialDelay: 0,
+      });
+    } catch (error) {
+      console.error('Failed to create database pool:', error);
+      throw error;
+    }
+  }
+  return pool;
+}
 
 // Helper function to execute queries
 export async function query<T = any>(sql: string, params?: any[]): Promise<T[]> {
   try {
-    const [rows] = await pool.execute(sql, params);
+    const dbPool = getPool();
+    const [rows] = await dbPool.execute(sql, params);
     return rows as T[];
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database query error:', error);
+    // If table doesn't exist, provide helpful error
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      console.error('Table does not exist. Run: node scripts/init-db.js');
+    }
     throw error;
   }
 }
@@ -56,10 +72,15 @@ export async function queryOne<T = any>(sql: string, params?: any[]): Promise<T 
 // Helper function for insert/update/delete
 export async function execute(sql: string, params?: any[]): Promise<any> {
   try {
-    const [result] = await pool.execute(sql, params);
+    const dbPool = getPool();
+    const [result] = await dbPool.execute(sql, params);
     return result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database execute error:', error);
+    // If table doesn't exist, provide helpful error
+    if (error.code === 'ER_NO_SUCH_TABLE') {
+      console.error('Table does not exist. Run: node scripts/init-db.js');
+    }
     throw error;
   }
 }
@@ -69,5 +90,5 @@ export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-export { pool };
-export default pool;
+export { getPool };
+export default getPool;
